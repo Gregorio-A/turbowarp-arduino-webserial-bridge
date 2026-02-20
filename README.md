@@ -2,11 +2,13 @@
 
 # Arduino Multi-Port Extension Guide
 
+#**This extention only works on web browsers!!!!**
+
 This extension allows Scratch/TurboWarp to communicate with an Arduino via USB Serial. It is designed to read multiple analog sensors simultaneously and process the data to create smooth, reliable interactions.
 
 ## 1. Setup & Connection
 **Requirement:** This extension must run in **"Unsandboxed"** mode because it uses the Web Serial API to access USB ports.
-**This only works on web browsers!!!!**
+
 
 -   **Connect Block** (`Conectar ao Arduino (115200)`):
     -   Opens a browser popup asking you to select a COM port.
