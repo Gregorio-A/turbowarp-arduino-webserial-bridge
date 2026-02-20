@@ -6,6 +6,7 @@ This extension allows Scratch/TurboWarp to communicate with an Arduino via USB S
 
 ## 1. Setup & Connection
 **Requirement:** This extension must run in **"Unsandboxed"** mode because it uses the Web Serial API to access USB ports.
+**This only works on web browsers!!!!**
 
 -   **Connect Block** (`Conectar ao Arduino (115200)`):
     -   Opens a browser popup asking you to select a COM port.
