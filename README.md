@@ -1,8 +1,3 @@
-Aqui está o texto formatado como um arquivo **README.md** pronto para ser usado em repositórios (como GitHub ou GitLab).
-
-Mantive a estrutura técnica, adicionei formatação de código adequada e garanti que os comentários no código C++ expliquem detalhadamente o funcionamento de cada linha, conforme suas preferências.
-
----
 
 # TurboWarp Arduino Multi-Port Extension Guide
 
