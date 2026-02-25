@@ -1,67 +1,175 @@
-# turbowarp-arduino-extention
+Aqui está o texto formatado como um arquivo **README.md** pronto para ser usado em repositórios (como GitHub ou GitLab).
 
-# Arduino Multi-Port Extension Guide
+Mantive a estrutura técnica, adicionei formatação de código adequada e garanti que os comentários no código C++ expliquem detalhadamente o funcionamento de cada linha, conforme suas preferências.
 
-#**This extention only works on web browsers!!!!**
+---
 
-This extension allows Scratch/TurboWarp to communicate with an Arduino via USB Serial. It is designed to read multiple analog sensors simultaneously and process the data to create smooth, reliable interactions.
+# TurboWarp Arduino Multi-Port Extension Guide
 
-## 1. Setup & Connection
-**Requirement:** This extension must run in **"Unsandboxed"** mode because it uses the Web Serial API to access USB ports.
+This comprehensive guide explains how to use the Arduino Multi-Port extension in TurboWarp. This extension bridges the gap between the physical and digital worlds, allowing your Scratch/TurboWarp projects to communicate directly with an Arduino microcontroller via a USB Serial connection.
+
+By reading multiple analog sensors simultaneously and processing the data in real-time, you can create custom game controllers, interactive museum exhibits, STEM education projects, and hardware-driven animations with smooth, reliable interactions.
+
+---
+
+## 1. Important Requirements & Prerequisites
+
+Before you start building, there are a few strict technical requirements due to how web browsers handle hardware security.
+
+* **Web Browsers Only:** This extension relies on the HTML5 Web Serial API to communicate with USB ports. It is fully supported on Google Chrome, Microsoft Edge, Opera, Brave, and other Chromium-based browsers.
+    > **Note:** It will not work on Mozilla Firefox, Apple Safari, or the standard desktop versions of Scratch/TurboWarp without specialized modifications, as those platforms block direct serial access for security reasons.
+
+* **Unsandboxed Mode:** When loading this custom extension into TurboWarp, you must load it as an **"Unsandboxed"** extension. The standard Scratch sandbox security prevents websites from directly accessing your computer's hardware. Running it unsandboxed gives the extension the necessary permissions to read and write to the USB port.
+
+* **Data-Capable USB Cable:** A very common beginner mistake is using a "charge-only" USB cable (often included with cheap electronics). Your Arduino will power on, but the computer won't recognize it. Ensure you are using a high-quality data USB cable.
+
+---
+
+## 2. Setting Up the Arduino (Hardware Side)
+
+For the TurboWarp extension to properly understand the sensor data, the Arduino must format and send the information over the Serial port using a very specific protocol.
+
+### The Communication Protocol
+
+The extension constantly listens for data and looks for a specific pattern: `PORT_NAME:VALUE` followed immediately by a newline character (`\n`).
+
+**Example:**
+`A0:1023`
+
+The colon (`:`) separates the identifier from the data, and the newline tells TurboWarp "this reading is complete, you can process it now."
+
+### Basic Arduino Code Example
+
+Here is a complete Arduino C++ code example that reads two analog pins (A0 and A1) and formats them correctly for TurboWarp.
+
+```cpp
+void setup() {
+  // O baud rate (115200) define a velocidade da comunicação (bits por segundo).
+  // IMPORTANTE: Este número DEVE ser exatamente o mesmo escolhido no bloco "Connect" do TurboWarp.
+  Serial.begin(115200);
+
+  // Aguarda a porta serial conectar antes de prosseguir.
+  // O loop 'while (!Serial)' verifica se a conexão foi estabelecida.
+  // Isso é essencial para placas que usam USB nativo (como Leonardo ou Micro),
+  // garantindo que nenhum dado seja enviado antes do computador estar pronto.
+  while (!Serial) {
+    ; // Não faz nada, apenas espera.
+  }
+}
+
+void loop() {
+  int sensorValueA0 = analogRead(A0);
+
+  Serial.print("A0:");
+  // O comando println() é crucial pois sinaliza para o TurboWarp que o pacote de dados acabou.
+  Serial.println(sensorValueA0);
+
+  int sensorValueA1 = analogRead(A1);
+
+  Serial.print("A1:");
+  Serial.println(sensorValueA1);
+
+  // Adiciona uma pequena pausa de 50 milissegundos.
+  // Sem este delay, o Arduino envia milhares de dados por segundo, o que pode
+  // sobrecarregar o navegador (buffer overflow) e causar travamentos ou lag no jogo.
+  delay(50);
+}
+
+```
+
+---
+
+## 3. TurboWarp Setup & Connection
+
+Once your Arduino is plugged in and running the code above, open your TurboWarp project to establish the connection.
+
+* **Connect Block (`Connect to Arduino at [115200] baud`):**
+When this block is executed, the browser will display a security popup asking you to explicitly grant permission to a specific USB device. Look for names like "USB Serial Device", "Arduino Uno", or "CH340".
+* **Baud Rate:**
+The default is **115200**, which is fast and responsive. If your Arduino code uses `Serial.begin(9600);`, you must change the dropdown in this block to **9600**, otherwise the data will look like gibberish.
+* **Connection Check (`Is connected?`):**
+Hardware connections take a moment to establish. Always wrap your main reading loops inside an `if <Is connected?>` block. This prevents your game logic from running (and potentially crashing or acting erratically) before the hardware is ready. It is also good practice to use this to show a "Please connect your controller" screen in your game.
+* **Disconnect Block (`Disconnect`):**
+Use this block when your game ends or via a specific keyboard shortcut. This cleanly closes the port, releasing the USB device so that other software (like the Arduino IDE) can upload new code. If you don't disconnect cleanly, you may have to physically unplug and replug the Arduino.
+
+---
+
+## 4. Reading and Processing Data
+
+Physical hardware is rarely perfect. Raw analog sensors are heavily affected by electromagnetic interference, cheap internal components, and voltage fluctuations. If you use raw data directly, your game sprites will likely vibrate or jump erratically.
+
+### Core Reading
+
+* **Read Value Block (`Read port [A0] value`):**
+This block reaches into the extension's memory and retrieves the most recent valid number sent by the Arduino. You should place this inside a forever loop to constantly update variables or sprite properties.
+
+### Basic Math and Conversion Filters
+
+Raw sensor data (usually 0 to 1023) rarely matches the coordinate system of a screen. Use these blocks to mathematically adapt the numbers:
+
+* **Map Values (`map [VALUE] from [MIN]..[MAX] to [OUT_MIN]..[OUT_MAX]`):**
+This is your most powerful tool. It converts a number from one scale proportionally to another.
+* *Example:* Your steering wheel potentiometer outputs 0 (left) to 1023 (right), but your car sprite needs to rotate from -90 degrees to 90 degrees. Set the block to map 0..1023 to -90..90. The math is handled automatically.
 
 
--   **Connect Block** (`Conectar ao Arduino (115200)`):
-    -   Opens a browser popup asking you to select a COM port.
-    -   Sets the baud rate to **115200**.
-    -   Starts listening for data immediately.
--   **Disconnect Block** (`Desconectar`):
-    -   Closes the connection and stops reading.
--   **Is Connected?** (`Está conectado?`):
-    -   Returns `true` if the port is open and ready.
+* **Constrain (`constrain [VALUE] between [MIN] and [MAX]`):**
+Sets a strict minimum and maximum boundary.
+* *Example:* If a sensor glitches due to a loose wire and suddenly sends 1500, but you constrained the output to 1000, the block will act as a wall and output exactly 1000, preventing your sprite from flying off the screen.
 
-## 2. Reading Data
-The extension expects data in the format `A0:1023\n`. It automatically parses this and updates the internal variable for that port.
 
--   **Read Value Block** (`Ler valor da porta [PORT]`):
-    -   Returns the *last received value* for the selected port (A0-A5).
-    -   If no data has been received yet, it returns `0`.
-    -   You can read A0, A1, A2, etc., continuously in your loop.
+* **Smooth Value (`smooth [CURRENT] to [TARGET] with speed [f]`):**
+Also known as linear interpolation (Lerp). Instead of instantly teleporting from 0 to 100, the value gracefully "glides" towards the target based on the speed factor (`f`).
+* *Usage:* `f = 0.05` is very slow and floaty (like moving through water). `f = 0.8` is fast and snappy. Great for UI animations or smoothing out camera movements.
 
-## 3. Basic Processing
-These blocks help convert raw sensor data (0-1023) into useful numbers for your project.
 
--   **Map Values** (`mapear [VALUE] de [MIN]..[MAX] to [OUT_MIN]..[OUT_MAX]`):
-    -   Converts a number from one range to another.
-    -   *Example:* Map potentiometer (0-1023) to Sprite X position (-240 to 240).
--   **Constrain** (`limitar [VALUE] entre [MIN] e [MAX]`):
-    -   Forces a number to stay within limits.
-    -   *Example:* Keep a servo angle between 0 and 180.
--   **Smooth (Simple)** (`suavizar [CURRENT] para [TARGET] com velocidade [f]`):
-    -   Moves a value slowly towards a target.
-    -   `f` = 0.1 (Slow/Smooth), `f` = 0.9 (Fast/Responsive).
 
-## 4. Advanced Filters (Noise Reduction)
-Sensors are often noisy. Use these blocks to clean up the data.
+### Advanced Noise Filters
 
-### A. Median Filter (Filtro Mediana)
-**Best for:** Removing crazy spikes (e.g., random 0 or 1023 readings).
--   **Block:** `filtro mediana [VALUE] buffer [SIZE] id [ID]`
--   **How it works:** Keeps a list of the last `SIZE` readings, sorts them, and picks the middle one. Spikes get sorted to the ends and ignored.
--   **Usage:** Set `SIZE` to `5` or `10`. Use a unique `ID` (e.g., "A0_med").
+To fix the physical jittering of sensors, use these data-cleaning filters.
 
-### B. Deadzone Filter (Ignorar Ruído)
-**Best for:** Ignoring small jitters when the sensor should be still.
--   **Block:** `ignorar ruído [VALUE] limite [THRESH] id [ID]`
--   **How it works:** Only changes the output if the new value is different enough from the old value (determined by `THRESH`).
--   **Usage:** Set `THRESH` to `2` or `5`. Use a unique `ID` (e.g., "A0_dead").
+> **Important Note:** Always use a unique ID string (like "player1_steering" or "A0_speed") for each physical sensor. If you reuse the same ID for two different sensors, the extension will mix their histories, causing chaotic behavior.
 
-### C. Rate Limit Filter (Limitar Velocidade)
-**Best for:** Making movements smooth and robotic, preventing instant jumps.
--   **Block:** `limitar velocidade [VALUE] max delta [DELTA] id [ID]`
--   **How it works:** Limits how much the value can change per frame. If the sensor jumps from 0 to 100, and `DELTA` is 10, it will take 10 frames to get there.
--   **Usage:** Set `DELTA` to `5` (slow) or `20` (fast). Use a unique `ID` (e.g., "A0_speed").
+* **Median Filter (`median filter [VALUE] buffer [SIZE] id [ID]`):**
+* *Best for:* Eliminating random, extreme spikes (e.g., a sensor that reads 500, 501, 500, 0, 502).
+* *How it works:* Unlike an "average" (which gets dragged down by the 0), a median filter keeps a history of the last few readings, sorts them in order, and picks the exact middle number. Spikes are pushed to the edges and completely ignored. Use a buffer size of 5 or 10.
 
-## 5. Troubleshooting
--   **"Error: Browser not supported":** You must use Chrome, Edge, or a Chromium-based browser.
--   **Values are confusing/mixed:** Check your **IDs** in the filter blocks. If you use the same ID for A0 and A1, they will overwrite each other's history.
--   **Connection fails:** Make sure no other program (like Arduino IDE serial monitor) is using the port.
+
+* **Deadzone Filter (`ignore noise [VALUE] threshold [THRESH] id [ID]`):**
+* *Best for:* Joysticks or sliders that wiggle slightly when you aren't even touching them (analog drift).
+* *How it works:* It creates a "frozen zone". The block will not change its output unless the physical input moves by an amount greater than the THRESH value. Set THRESH to 3 or 5 to eliminate resting jitter.
+
+
+* **Rate Limit Filter (`limit speed [VALUE] max delta [DELTA] id [ID]`):**
+* *Best for:* Simulating physical mass and inertia.
+* *How it works:* It strictly limits how much a value can change per frame. If the player yanks a joystick from 0 to 100 instantly, but DELTA is set to 5, the output will count up by 5 per frame (5, 10, 15...). It prevents instant jumps and forces mechanical-feeling transitions.
+
+
+
+---
+
+## 5. Troubleshooting Common Issues
+
+| Issue | Solution |
+| --- | --- |
+| **"Browser not supported" Error** | Ensure you are using a modern Chromium browser. If you are on a Chromebook, ensure the administrator hasn't blocked USB device access. |
+| **No Ports Showing Up** | 1. Your USB cable is "charge-only" and lacks data wires. Swap the cable.<br>
+
+<br>2. You are missing the serial drivers for cheap Arduino clones (you may need to download and install the "CH340" driver). |
+| **"Port already in use"** | A serial port can only be spoken to by one program at a time. If the Arduino IDE's Serial Monitor is open, or a 3D printer slicer is running in the background, TurboWarp cannot connect. Close other software. |
+| **Values are 0 or flickering** | Check the baud rate. If the TurboWarp block is set to 115200 but the Arduino setup says `Serial.begin(9600);`, the connection will establish, but the data will be scrambled. |
+| **Severe Input Lag** | Your Arduino is sending data too fast. Make sure you have a `delay(30)` or `delay(50)` at the end of your Arduino loop. Without a delay, the browser's serial buffer fills up, causing a traffic jam. |
+
+---
+
+## 6. Future Improvements (Roadmap)
+
+This extension is currently optimized for a one-way flow of clean analog data. However, future updates may expand its capabilities to unlock even more complex hardware interactions:
+
+* **Two-Way Communication (Sending Data):** Adding command blocks to send text, numbers, or specific bytes back to the Arduino. This would allow TurboWarp logic to turn on physical LEDs, move servo motors, display scores on an LCD screen, or trigger haptic feedback motors based on in-game events.
+* **Digital Pin & State Support:** While analog data is great for dials, supporting raw digital ON/OFF states (1 or 0) natively would make reading arcade buttons, magnetic reed switches, and limit switches much more efficient.
+* **Auto-Reconnect Logic:** If a USB cable is accidentally yanked out during gameplay, the extension currently crashes the connection. Future versions could detect the disconnection, pause the game, and automatically re-establish the connection seamlessly once the cable is plugged back in.
+* **Custom Data Parsers:** Advanced users often want to send multiple data types (like an accelerometer's X, Y, and Z axes) packed tightly together. Allowing custom delimiters (like splitting by commas instead of colons) or adding native JSON parsing would make the extension compatible with complex existing Arduino libraries out of the box.
+
+```
+
+```
