@@ -152,16 +152,14 @@ To fix the physical jittering of sensors, use these data-cleaning filters.
 | Issue | Solution |
 | --- | --- |
 | **"Browser not supported" Error** | Ensure you are using a modern Chromium browser. If you are on a Chromebook, ensure the administrator hasn't blocked USB device access. |
-| **No Ports Showing Up** | 1. Your USB cable is "charge-only" and lacks data wires. Swap the cable.<br>
-
-<br>2. You are missing the serial drivers for cheap Arduino clones (you may need to download and install the "CH340" driver). |
+| **No Ports Showing Up** | 1. Your USB cable is "charge-only" and lacks data wires. Swap the cable.<br> <br>2. You are missing the serial drivers for cheap Arduino clones (you may need to download and install the "CH340" driver). |
 | **"Port already in use"** | A serial port can only be spoken to by one program at a time. If the Arduino IDE's Serial Monitor is open, or a 3D printer slicer is running in the background, TurboWarp cannot connect. Close other software. |
 | **Values are 0 or flickering** | Check the baud rate. If the TurboWarp block is set to 115200 but the Arduino setup says `Serial.begin(9600);`, the connection will establish, but the data will be scrambled. |
 | **Severe Input Lag** | Your Arduino is sending data too fast. Make sure you have a `delay(30)` or `delay(50)` at the end of your Arduino loop. Without a delay, the browser's serial buffer fills up, causing a traffic jam. |
 
 ---
 
-## 6. Future Improvements (Roadmap)
+## 6. AI suggestions for "Future Improvements" (Roadmap)
 
 This extension is currently optimized for a one-way flow of clean analog data. However, future updates may expand its capabilities to unlock even more complex hardware interactions:
 
@@ -169,7 +167,3 @@ This extension is currently optimized for a one-way flow of clean analog data. H
 * **Digital Pin & State Support:** While analog data is great for dials, supporting raw digital ON/OFF states (1 or 0) natively would make reading arcade buttons, magnetic reed switches, and limit switches much more efficient.
 * **Auto-Reconnect Logic:** If a USB cable is accidentally yanked out during gameplay, the extension currently crashes the connection. Future versions could detect the disconnection, pause the game, and automatically re-establish the connection seamlessly once the cable is plugged back in.
 * **Custom Data Parsers:** Advanced users often want to send multiple data types (like an accelerometer's X, Y, and Z axes) packed tightly together. Allowing custom delimiters (like splitting by commas instead of colons) or adding native JSON parsing would make the extension compatible with complex existing Arduino libraries out of the box.
-
-```
-
-```
