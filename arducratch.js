@@ -37,7 +37,7 @@
 
       const messages = {
         name: isPt ? 'Arduino Multi-Portas' : 'Arduino Multi-Port',
-        connect: isPt ? 'Conectar ao Arduino (115200)' : 'Connect to Arduino (115200)',
+        connect: isPt ? 'Conectar ao Arduino a [BAUD] baud' : 'Connect to Arduino at [BAUD] baud',
         getSerialData: isPt ? 'Ler valor da porta [PORT]' : 'Read port [PORT] value',
         isSerialConnected: isPt ? 'Está conectado?' : 'Is connected?',
         disconnect: isPt ? 'Desconectar' : 'Disconnect',
@@ -66,7 +66,14 @@
           {
             opcode: 'connect',
             blockType: Scratch.BlockType.COMMAND,
-            text: this.getMessage('connect')
+            text: this.getMessage('connect'),
+            arguments: {
+              BAUD: {
+                type: Scratch.ArgumentType.STRING,
+                menu: 'baudRates',
+                defaultValue: '115200'
+              }
+            }
           },
           {
             opcode: 'getSerialData',
@@ -157,17 +164,25 @@
           ports: {
             acceptReporters: true,
             items: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5']
+          },
+          baudRates: {
+            // Cria um menu suspenso no bloco para o usuário escolher a velocidade da comunicação
+            acceptReporters: true,
+            items: ['9600', '19200', '38400', '57600', '115200', '250000']
           }
         }
       };
     }
 
-    async connect() {
+    async connect(args) {
       // Previne tentar conectar se já estiver conectado, evitando problemas de vazamento de memória e travamento da porta
       if (this.isConnected) {
         console.log(this.getMessage('errorConnected'));
         return;
       }
+
+      // Converte a escolha do bloco para número inteiro. Se der algum erro na leitura, ele usa 115200 como proteção.
+      const baudRate = parseInt(args.BAUD) || 115200;
 
       // Verifica se o navegador possui o recurso Web Serial API
       if (!navigator.serial) {
@@ -179,9 +194,9 @@
         // Abre o popup na tela do usuário para ele escolher o dispositivo USB
         this.port = await navigator.serial.requestPort({ filters: [] });
 
-        // Abre a comunicação definindo a taxa de transmissão (baud rate). 
-        // Precisa ser igual ao que está configurado no "Serial.begin()" do Arduino.
-        await this.port.open({ baudRate: 115200 });
+        // Abre a comunicação definindo a taxa de transmissão de acordo com a escolha no bloco. 
+        // Precisa ser igual ao que está configurado no "Serial.begin(valor)" do Arduino.
+        await this.port.open({ baudRate: baudRate });
         this.isConnected = true;
 
         // O Arduino envia os dados como bytes brutos. O TextDecoder transforma esses bytes em texto legível.
