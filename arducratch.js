@@ -1,38 +1,31 @@
 (function (Scratch) {
   'use strict';
 
-  // Verifica se a extensão está no modo Unsandboxed.
-  // O Web Serial API exige controle direto do hardware, o que não é permitido na sandbox (modo seguro).
+  // The Web Serial API requires direct hardware control, which is not allowed in the sandbox.
   if (!Scratch.extensions.unsandboxed) {
-    throw new Error('Esta extensão precisa rodar no modo "Unsandboxed" para acessar portas USB.');
+    throw new Error('This extension must run in "Unsandboxed" mode to access USB ports.');
   }
 
   class ArduinoSerialExtension {
     constructor() {
-      // Configurações básicas da comunicação Serial
       this.port = null;
       this.reader = null;
       this.inputDone = null;
       this.isConnected = false;
-      this.partialRecord = ""; // Guarda os textos incompletos que chegam da USB cortados
+      this.partialRecord = ""; // buffer for incomplete data packets
 
-      // Armazena o valor atual de cada porta do Arduino (A0, A1, etc.)
       this.sensorValues = {
         'A0': 0, 'A1': 0, 'A2': 0, 'A3': 0, 'A4': 0, 'A5': 0
       };
 
-      // Memórias separadas para cada tipo de filtro evitar conflitos.
-      // Antes, rate limit e deadzone dividiam a mesma variável.
-      this.filterBuffers = {};      // Histórico para o filtro de Mediana (guarda listas)
-      this.deadzoneValues = {};     // Último valor isolado para o filtro Deadzone
-      this.rateLimitValues = {};    // Último valor isolado para o filtro Rate Limit
+      // Separate memory buffers for filters to avoid conflicts
+      this.filterBuffers = {};
+      this.deadzoneValues = {};
+      this.rateLimitValues = {};
     }
 
-    // Função responsável por verificar o idioma do editor e retornar o texto correto
     getMessage(id) {
-      // Captura o idioma atual do TurboWarp. Se falhar por algum motivo, usa 'pt' como segurança.
       const lang = (Scratch.translate && Scratch.translate.language) ? Scratch.translate.language : 'pt';
-      // Se a sigla começar com 'pt', exibe em português. Senão, vai para o inglês.
       const isPt = lang.startsWith('pt');
 
       const messages = {
@@ -56,8 +49,6 @@
     }
 
     getInfo() {
-      // Aqui dizemos para o Scratch como a extensão deve se parecer visualmente
-      // Agora chamando this.getMessage() para cada texto na tela
       return {
         id: 'arduinoSerialMulti',
         name: this.getMessage('name'),
@@ -136,7 +127,7 @@
             arguments: {
               VALUE: { type: Scratch.ArgumentType.NUMBER, defaultValue: 0 },
               SIZE: { type: Scratch.ArgumentType.NUMBER, defaultValue: 5 },
-              ID: { type: Scratch.ArgumentType.STRING, defaultValue: 'filtro1' }
+              ID: { type: Scratch.ArgumentType.STRING, defaultValue: 'filter1' }
             }
           },
           {
@@ -146,7 +137,7 @@
             arguments: {
               VALUE: { type: Scratch.ArgumentType.NUMBER, defaultValue: 0 },
               THRESH: { type: Scratch.ArgumentType.NUMBER, defaultValue: 2 },
-              ID: { type: Scratch.ArgumentType.STRING, defaultValue: 'ruido1' }
+              ID: { type: Scratch.ArgumentType.STRING, defaultValue: 'noise1' }
             }
           },
           {
@@ -156,7 +147,7 @@
             arguments: {
               VALUE: { type: Scratch.ArgumentType.NUMBER, defaultValue: 0 },
               DELTA: { type: Scratch.ArgumentType.NUMBER, defaultValue: 10 },
-              ID: { type: Scratch.ArgumentType.STRING, defaultValue: 'suave1' }
+              ID: { type: Scratch.ArgumentType.STRING, defaultValue: 'smooth1' }
             }
           }
         ],
@@ -166,7 +157,6 @@
             items: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5']
           },
           baudRates: {
-            // Cria um menu suspenso no bloco para o usuário escolher a velocidade da comunicação
             acceptReporters: true,
             items: ['9600', '19200', '38400', '57600', '115200', '250000']
           }
@@ -175,36 +165,28 @@
     }
 
     async connect(args) {
-      // Previne tentar conectar se já estiver conectado, evitando problemas de vazamento de memória e travamento da porta
       if (this.isConnected) {
         console.log(this.getMessage('errorConnected'));
         return;
       }
 
-      // Converte a escolha do bloco para número inteiro. Se der algum erro na leitura, ele usa 115200 como proteção.
       const baudRate = parseInt(args.BAUD) || 115200;
 
-      // Verifica se o navegador possui o recurso Web Serial API
       if (!navigator.serial) {
         alert(this.getMessage('errorBrowser'));
         return;
       }
 
       try {
-        // Abre o popup na tela do usuário para ele escolher o dispositivo USB
         this.port = await navigator.serial.requestPort({ filters: [] });
-
-        // Abre a comunicação definindo a taxa de transmissão de acordo com a escolha no bloco. 
-        // Precisa ser igual ao que está configurado no "Serial.begin(valor)" do Arduino.
         await this.port.open({ baudRate: baudRate });
         this.isConnected = true;
 
-        // O Arduino envia os dados como bytes brutos. O TextDecoder transforma esses bytes em texto legível.
+        // Decodes raw bytes into readable text stream
         const textDecoder = new TextDecoderStream();
         this.inputDone = this.port.readable.pipeTo(textDecoder.writable);
         this.reader = textDecoder.readable.getReader();
 
-        // Dispara a função que vai ficar lendo os dados infinitamente
         this.readLoop();
 
       } catch (error) {
@@ -214,39 +196,32 @@
     }
 
     async readLoop() {
-      // Lê os dados apenas se a variável de conexão estiver verdadeira
       while (this.isConnected) {
         try {
-          // Congela essa linha e aguarda até chegar o próximo pacote de dados da porta USB
           const { value, done } = await this.reader.read();
 
-          // Se 'done' for true, significa que o leitor fechou (ex: usamos o botão de desconectar)
           if (done) {
             if (this.reader) this.reader.releaseLock();
             break;
           }
 
-          // Se a leitura trouxe conteúdo, repassa para a função que corta e entende o texto
           if (value) {
             this.handleData(value);
           }
         } catch (error) {
-          // Esse bloco 'catch' é engatilhado, por exemplo, se a pessoa puxar o cabo USB fisicamente do computador
-          console.error("Erro de leitura ou cabo removido bruscamente:", error);
+          console.error("Read error or cable disconnected:", error);
           if (this.reader) {
-            // Extremamente importante: liberar o uso do leitor para não travar a porta para futuras tentativas
+            // Critical: release lock to prevent port jamming
             this.reader.releaseLock(); 
           }
           break;
         }
       }
 
-      // Se o fluxo sair do while, garante que desativamos tudo corretamente
       this.isConnected = false;
       this.cleanUpState(); 
     }
 
-    // Função para limpar rastros depois da conexão cair
     cleanUpState() {
       this.port = null;
       this.reader = null;
@@ -255,33 +230,23 @@
     }
 
     handleData(chunk) {
-      // Pega o pedaço de texto novo e gruda no final do texto acumulado da leitura anterior
       this.partialRecord += chunk;
 
-      // O caractere especial '\n' (quebra de linha) indica que o Arduino terminou de enviar aquele número
+      // Process only when a newline (\n) is received
       if (this.partialRecord.includes('\n')) {
-        // Divide o texto todo usando o enter (\n) como tesoura
         const lines = this.partialRecord.split('\n');
-
-        // Como a última linha quase sempre chegou incompleta, removemos da lista e devolvemos pra memória
+        
+        // The last line is usually incomplete, save it for the next chunk
         this.partialRecord = lines.pop();
 
         for (const line of lines) {
-          // O comando trim() é ótimo porque remove os espaços nas bordas e também os invisíveis como \r (do Windows)
           const trimmed = line.trim();
-
-          // Confirma que a linha não ficou vazia depois de limpar
           if (trimmed.length > 0) {
-            // Procura o separador de protocolo (dois pontos ':')
             const parts = trimmed.split(':');
-
-            // Verifica se o texto dividiu certinho em duas partes (ex: "A0" e "1023")
             if (parts.length === 2) {
               const portName = parts[0];
-              // Converte obrigatoriamente para Número. Se ficasse como Texto (String), o Scratch faria contas erradas
               const sensorValue = parseFloat(parts[1]);
 
-              // Confirma se o que chegou depois dos dois pontos era mesmo um número e não lixo de comunicação
               if (!isNaN(sensorValue)) {
                 this.sensorValues[portName] = sensorValue;
               }
@@ -292,35 +257,29 @@
     }
 
     async disconnect() {
-      // Sai da função se já não tiver porta em andamento
       if (!this.isConnected && !this.port) return;
 
-      this.isConnected = false; // Dá o sinal para o 'while' do readLoop parar de ler
+      this.isConnected = false; 
 
       try {
-        // Encerra suavemente a ponte de leitura
         if (this.reader) {
           await this.reader.cancel();
           if (this.inputDone) {
-            // Espera a interrupção acontecer sem explodir erros na tela
             await this.inputDone.catch(() => {}); 
           }
         }
-        // Fechamento definitivo da porta USB
         if (this.port) {
           await this.port.close();
         }
       } catch (error) {
-        console.error("Erro durante a desconexão manual:", error);
+        console.error("Disconnect error:", error);
       } finally {
         this.cleanUpState(); 
       }
     }
 
     getSerialData(args) {
-      // String(X).trim() força o nome da porta a ser texto limpo (ajuda caso coloquem espaços errados no bloco do Scratch)
       const port = String(args.PORT).trim();
-      // Retorna a memória do sensor ou zero se ele nunca enviou dados
       return this.sensorValues[port] || 0;
     }
 
@@ -331,10 +290,7 @@
       const outMin = parseFloat(args.OUT_MIN) || 0;
       const outMax = parseFloat(args.OUT_MAX) || 0;
 
-      // Retorna logo o valor inicial de saída para evitar erro matemático de divisão por zero (se Mín e Máx de entrada forem iguais)
       if (inMin === inMax) return outMin;
-
-      // Executa a regra de três clássica para transpor o valor de uma escala para a outra
       return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
     }
 
@@ -343,11 +299,9 @@
       const target = parseFloat(args.TARGET) || 0;
       let factor = parseFloat(args.f) || 0;
 
-      // Mantém a velocidade contida entre 0 (não anda) e 1 (chega instantaneamente)
       if (factor < 0) factor = 0;
       if (factor > 1) factor = 1;
 
-      // Calcula a diferença pro alvo e avança apenas uma fração (fator) dessa distância
       return current + (target - current) * factor;
     }
 
@@ -356,21 +310,18 @@
       const min = parseFloat(args.MIN) || 0;
       const max = parseFloat(args.MAX) || 0;
 
-      // Corta o valor e o "encaixota" caso queira ultrapassar os tetos permitidos
       if (value < min) return min;
       if (value > max) return max;
       return value;
     }
 
-    // --- FILTROS DE SINAL ---
+    // --- SIGNAL FILTERS ---
 
     filterMedian(args) {
       const val = parseFloat(args.VALUE) || 0;
-      // Define a "janela" do histórico e limita entre 1 a 20 pra evitar vazamentos absurdos de uso de memória RAM
       const size = Math.max(1, Math.min(parseInt(args.SIZE) || 5, 20)); 
       const id = String(args.ID).trim();
 
-      // Inicia a array que guarda o histórico se for o primeiro uso deste ID
       if (!this.filterBuffers[id]) {
         this.filterBuffers[id] = [];
       }
@@ -378,17 +329,14 @@
       const buffer = this.filterBuffers[id];
       buffer.push(val); 
 
-      // Se o histórico estourou a janela limite, apaga a primeira leitura feita (a mais antiga, índice 0)
       if (buffer.length > size) {
         buffer.shift();
       }
 
-      // Copia os dados usando '[...buffer]' (para não quebrar a ordem do tempo) e alinha do menor pro maior número
+      // Sort and pick the middle value to ignore extreme spikes
       const sorted = [...buffer].sort((a, b) => a - b);
-      // Calcula onde é o exato meio da lista
       const mid = Math.floor(sorted.length / 2);
 
-      // A mediana exclui anomalias extremas retornando apenas o número normal do centro das repetições
       return sorted[mid];
     }
 
@@ -397,7 +345,6 @@
       const threshold = parseFloat(args.THRESH) || 0;
       const id = String(args.ID).trim();
 
-      // Se é a primeira execução do filtro, armazena de cara o valor inicial
       if (this.deadzoneValues[id] === undefined) {
         this.deadzoneValues[id] = val;
         return val;
@@ -405,39 +352,33 @@
 
       const last = this.deadzoneValues[id];
 
-      // O comando Math.abs transforma números negativos em positivos pra avaliar a distância real.
-      // Se essa "distância de pulo" superou a barreira imposta pelo usuário (threshold), permite e atualiza o número atual.
+      // Only update if change is greater than threshold (ignores jitter)
       if (Math.abs(val - last) >= threshold) {
         this.deadzoneValues[id] = val;
         return val;
       }
 
-      // Se o "pulo" foi fraquinho (inferior à barreira), finge que nada mudou pra estabilizar pequenos chiados mecânicos
       return last;
     }
 
     filterRateLimit(args) {
       const target = parseFloat(args.VALUE) || 0;
-      // Garante que a força/velocidade máxima será sempre encarada como distância positiva
       const maxDelta = Math.abs(parseFloat(args.DELTA) || 10);
       const id = String(args.ID).trim();
 
-      // Registra o alvo na primeira tacada e sai
       if (this.rateLimitValues[id] === undefined) {
         this.rateLimitValues[id] = target;
         return target;
       }
 
       const current = this.rateLimitValues[id];
-      const diff = target - current; // Vê quantos "km" faltam para atingir o valor bruto do sensor
-
+      const diff = target - current;
       let change = diff;
 
-      // Se o valor bruto exigir um tranco muito violento (acima do delta), a gente amarra e só deixa mudar a quantia do maxDelta
+      // Limit the speed of change per frame
       if (change > maxDelta) change = maxDelta;
       if (change < -maxDelta) change = -maxDelta;
 
-      // Aplica esse movimento amansado ao valor da saída virtual
       const newValue = current + change;
       this.rateLimitValues[id] = newValue;
 
@@ -449,6 +390,5 @@
     }
   }
 
-  // Entrega o controle final da extensão criada ali em cima para a interface e cérebro do Scratch/TurboWarp
   Scratch.extensions.register(new ArduinoSerialExtension());
 })(Scratch);
