@@ -39,16 +39,10 @@ Here is a complete Arduino C++ code example that reads two analog pins (A0 and A
 
 ```cpp
 void setup() {
-  // O baud rate (115200) define a velocidade da comunicação (bits por segundo).
-  // IMPORTANTE: Este número DEVE ser exatamente o mesmo escolhido no bloco "Connect" do TurboWarp.
   Serial.begin(115200);
 
-  // Aguarda a porta serial conectar antes de prosseguir.
-  // O loop 'while (!Serial)' verifica se a conexão foi estabelecida.
-  // Isso é essencial para placas que usam USB nativo (como Leonardo ou Micro),
-  // garantindo que nenhum dado seja enviado antes do computador estar pronto.
   while (!Serial) {
-    ; // Não faz nada, apenas espera.
+    ;
   }
 }
 
@@ -56,7 +50,6 @@ void loop() {
   int sensorValueA0 = analogRead(A0);
 
   Serial.print("A0:");
-  // O comando println() é crucial pois sinaliza para o TurboWarp que o pacote de dados acabou.
   Serial.println(sensorValueA0);
 
   int sensorValueA1 = analogRead(A1);
@@ -64,9 +57,6 @@ void loop() {
   Serial.print("A1:");
   Serial.println(sensorValueA1);
 
-  // Adiciona uma pequena pausa de 50 milissegundos.
-  // Sem este delay, o Arduino envia milhares de dados por segundo, o que pode
-  // sobrecarregar o navegador (buffer overflow) e causar travamentos ou lag no jogo.
   delay(50);
 }
 
