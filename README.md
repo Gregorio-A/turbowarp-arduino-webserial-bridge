@@ -144,7 +144,7 @@ To fix the physical jittering of sensors, use these data-cleaning filters.
 
 ---
 
-## 6. AI suggestions for "Future Improvements" (Roadmap)
+## 6. Suggestions for "Future Improvements" (Roadmap)
 
 This extension is currently optimized for a one-way flow of clean analog data. However, future updates may expand its capabilities to unlock even more complex hardware interactions:
 
