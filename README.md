@@ -1,9 +1,9 @@
 
 # TurboWarp Arduino Multi-Port Extension Guide
 
-This comprehensive guide explains how to use the Arduino Multi-Port extension in TurboWarp. This extension bridges the gap between the physical and digital worlds, allowing your Scratch/TurboWarp projects to communicate directly with an Arduino microcontroller via a USB Serial connection.
+This extension allow your TurboWarp projects to communicate directly with an Arduino microcontroller via a USB Serial connection.
 
-By reading multiple analog sensors simultaneously and processing the data in real-time, you can create custom game controllers, interactive museum exhibits, STEM education projects, and hardware-driven animations with smooth, reliable interactions.
+By reading multiple analog sensors simultaneously and processing the data in real-time, you can create custom game controllers, interactive projects, education projects, and hardware-driven animations.
 
 ---
 
@@ -16,13 +16,11 @@ Before you start building, there are a few strict technical requirements due to 
 
 * **Unsandboxed Mode:** When loading this custom extension into TurboWarp, you must load it as an **"Unsandboxed"** extension. The standard Scratch sandbox security prevents websites from directly accessing your computer's hardware. Running it unsandboxed gives the extension the necessary permissions to read and write to the USB port.
 
-* **Data-Capable USB Cable:** A very common beginner mistake is using a "charge-only" USB cable (often included with cheap electronics). Your Arduino will power on, but the computer won't recognize it. Ensure you are using a high-quality data USB cable.
-
 ---
 
 ## 2. Setting Up the Arduino (Hardware Side)
 
-For the TurboWarp extension to properly understand the sensor data, the Arduino must format and send the information over the Serial port using a very specific protocol.
+For the TurboWarp extension to properly understand the sensor data, the Arduino must format and send the information over the Serial port using a specific protocol.
 
 ### The Communication Protocol
 
@@ -146,7 +144,7 @@ To fix the physical jittering of sensors, use these data-cleaning filters.
 
 ## 6. Suggestions for "Future Improvements" (Roadmap)
 
-This extension is currently optimized for a one-way flow of clean analog data. However, future updates may expand its capabilities to unlock even more complex hardware interactions:
+This extension is currently optimized for a one-way flow of clean analog data. I don't plan to update any of this, because i dont't need, but maybe in the future i could update with these things:
 
 * **Two-Way Communication (Sending Data):** Adding command blocks to send text, numbers, or specific bytes back to the Arduino. This would allow TurboWarp logic to turn on physical LEDs, move servo motors, display scores on an LCD screen, or trigger haptic feedback motors based on in-game events.
 * **Digital Pin & State Support:** While analog data is great for dials, supporting raw digital ON/OFF states (1 or 0) natively would make reading arcade buttons, magnetic reed switches, and limit switches much more efficient.
