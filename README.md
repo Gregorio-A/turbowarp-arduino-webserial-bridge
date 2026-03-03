@@ -5,6 +5,8 @@ This extension allow your TurboWarp projects to communicate directly with an Ard
 
 By reading multiple analog sensors simultaneously and processing the data in real-time, you can create custom game controllers, interactive projects, education projects, and hardware-driven animations.
 
+The only reason why i made this was for my students to be able to understand better the use of arduino and logic, using both arduino IDE and Turbowarp to learn logic.
+
 ---
 
 ## 1. Important Requirements & Prerequisites
